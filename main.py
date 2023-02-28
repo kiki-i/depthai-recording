@@ -9,8 +9,8 @@ from datetime import datetime
 from multiprocessing import cpu_count
 from pathlib import Path
 
+import argparse
 import subprocess
-import sys
 
 # Config
 ## Conifg recording
@@ -26,6 +26,15 @@ extendedDisparity = False
 subpixel = False
 
 disparityMultiplier: float = 1
+
+
+def checkCliExist(path: str) -> bool:
+  try:
+    subprocess.run(path, capture_output=True)
+  except FileNotFoundError:
+    return False
+  else:
+    return True
 
 
 def clenCliLine(override: str = "", end: str = "\n", width: int = 90):
@@ -64,6 +73,7 @@ def multiprocessFiles(processPaths: dict[Path, Path], fun) -> dict[Path, str]:
 
     # Wait all subprocess
     current: int = 0
+    clenCliLine(f"Processing {current}/{total}...", end="")
     for future in as_completed(threadResult):
       current = current + 1
       clenCliLine(f"Processing {current}/{total}...", end="")
@@ -77,12 +87,25 @@ def multiprocessFiles(processPaths: dict[Path, Path], fun) -> dict[Path, str]:
   return errorList
 
 
-def processCli() -> str:
-  outputPath: str = "output"
-
-  if len(sys.argv) > 1:
-    outputPath = sys.argv[1]
-  return outputPath
+def parseCli():
+  description = "Video recording with OAK-D "
+  parser = argparse.ArgumentParser(description=description)
+  parser.add_argument(
+      "-o",
+      "--out",
+      type=str,
+      metavar="",
+      default="output",
+      help="Output directory path, default=\"output\"")
+  parser.add_argument(
+      "-m",
+      "--mp4",
+      action="store_const",
+      const=True,
+      default=False,
+      help="Convert the raw H.265 file to mp4 (Require ffmpeg be installed)")
+  args = parser.parse_args()
+  return args
 
 
 def initPipeline():
@@ -160,7 +183,8 @@ if __name__ == "__main__":
   scriptPath = Path(__file__).parent
 
   # Init path
-  outputPath = processCli()
+  cliArgs = parseCli()
+  outputPath = cliArgs.out
   if ":" not in outputPath:
     outputDirPath = scriptPath.joinpath(outputPath)
   else:
@@ -179,8 +203,8 @@ if __name__ == "__main__":
     disparityOutQ = device.getOutputQueue(name="disparityOut", maxSize=fps)
     disparityFrame = None
 
-    print("Press Ctrl+C to stop recording...")
-    timestamp = datetime.now().astimezone().isoformat().replace(":", "")
+    print("Press Q on frame or Ctrl+C to stop recording...")
+    timestamp = datetime.now().astimezone().isoformat().replace(":", ";")
 
     rgbH265Path = outputDirPath.joinpath(f"[{timestamp}]rgb.h265")
     leftH265Path = outputDirPath.joinpath(f"[{timestamp}]left.h265")
@@ -191,7 +215,7 @@ if __name__ == "__main__":
                   rightH265Path, "wb") as rightFile:
       while True:
         try:
-          # Write file
+          # Write video files
           while rgbH265Q.has():
             rgbH265Q.get().getData().tofile(rgbFile)
           while leftH265Q.has():
@@ -209,7 +233,7 @@ if __name__ == "__main__":
                                                cv2.COLORMAP_BONE)
             cv2.imshow("Disparity Preview", disparityFrame)
 
-            if cv2.waitKey(1) == ord('q'):
+            if cv2.waitKey(1) == ord("q"):
               break
         except KeyboardInterrupt:
           break
@@ -217,26 +241,32 @@ if __name__ == "__main__":
       print("Stop recording...")
       cv2.destroyAllWindows()
 
-  inputKey = input("Converting to mp4? (y/n): ")
-  if inputKey == "y":
+      # Write calibration file
+      print("Backing up calibration...")
+      calibrationPath = outputDirPath.joinpath(f"[{timestamp}]calibration.json")
+      calibData = device.readCalibration()
+      calibData.eepromToJsonFile(calibrationPath)
+
+  if cliArgs.mp4:
     print("Converting to mp4...")
 
-    rgbMp4Path = rgbH265Path.parent.joinpath(f"[{timestamp}]rgb.mp4")
-    leftMp4Path = leftH265Path.parent.joinpath(f"[{timestamp}]left.mp4")
-    rightMp4Path = rightH265Path.parent.joinpath(f"[{timestamp}]right.mp4")
-    processPaths = {
-        rgbH265Path: rgbMp4Path,
-        leftH265Path: leftMp4Path,
-        rightH265Path: rightMp4Path
-    }
-    convertErrors = multiprocessFiles(processPaths, convertToMp4)
-    if convertErrors:
-      print("Complete with error!\n")
-      for file, error in convertErrors.items():
-        print(f"!Error: {file}: {error}")
+    if not checkCliExist("ffmpeg"):
+      print("Can't find ffmpeg!")
     else:
-      print("Complete!\n")
-  else:
-    print("Cancel conversion!")
+      rgbMp4Path = rgbH265Path.parent.joinpath(f"[{timestamp}]rgb.mp4")
+      leftMp4Path = leftH265Path.parent.joinpath(f"[{timestamp}]left.mp4")
+      rightMp4Path = rightH265Path.parent.joinpath(f"[{timestamp}]right.mp4")
+      processPaths = {
+          rgbH265Path: rgbMp4Path,
+          leftH265Path: leftMp4Path,
+          rightH265Path: rightMp4Path
+      }
+      convertErrors = multiprocessFiles(processPaths, convertToMp4)
+      if convertErrors:
+        print("!Error: Complete conversion with error!\n")
+        for file, error in convertErrors.items():
+          print(f"!Error: {file}: {error}")
+      else:
+        print("Complete conversion!")
 
   print(f"Output files in: \"{outputDirPath}\"")
