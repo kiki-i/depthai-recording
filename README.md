@@ -5,8 +5,8 @@ Video recording with OAK-D
 
 options:
   -h, --help   show this help message and exit
-  -o , --out   Output directory path, default="output"
   -m, --mp4    Convert the raw H.265 file to mp4 (Require ffmpeg be installed)
+  -o , --out   Output directory path, default="output"
 ```
 
 ## Requirements
