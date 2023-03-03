@@ -54,7 +54,7 @@ def initPipeline(rgbRes, monoRes, fps: int = 30):
   leftEncoder.setQuality(encoderQuality)
   rightEncoder.setQuality(encoderQuality)
 
-  return pipeline
+  return pipeline, rgbCam
 
 
 def initPreviewPipeline(rgbRes, monoRes, fps: int = 30):
@@ -98,4 +98,4 @@ def initPreviewPipeline(rgbRes, monoRes, fps: int = 30):
   stereo.setDepthAlign(dai.CameraBoardSocket.RGB)
   maxDisparity = stereo.initialConfig.getMaxDisparity()
 
-  return pipeline, maxDisparity
+  return pipeline, rgbCam, maxDisparity

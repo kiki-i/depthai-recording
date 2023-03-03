@@ -16,8 +16,13 @@ def updateBlendWeights(depthPercent):
 
 
 def preview():
-  pipeline, maxDisparity = initPreviewPipeline(rgbRes, monoRes, fps)
+  pipeline, rgbCam, maxDisparity = initPreviewPipeline(rgbRes, monoRes, fps)
   with dai.Device(pipeline) as device:
+    # RGB needs fixed focus to properly align with depth
+    calibrationbData = device.readCalibration()
+    lensPosition = calibrationbData.getLensPosition(dai.CameraBoardSocket.RGB)
+    rgbCam.initialControl.setManualFocus(lensPosition)
+
     rgbFrame = None
     disparityFrame = None
 

@@ -49,17 +49,19 @@ if __name__ == "__main__":
   if cliArgs.preview:
     preview()
   else:
-    # Recording
-    outputPath = cliArgs.out
-    if ":" not in outputPath:
-      outputDirPath = scriptPath.joinpath(outputPath)
-    else:
-      outputDirPath = Path(outputPath)
+    # Check output path
+    outputDirPath = Path(cliArgs.out)
     if not outputDirPath.exists():
       outputDirPath.mkdir(parents=True, exist_ok=True)
 
-    pipeline = initPipeline(rgbRes, monoRes, fps)
+    # Recording
+    pipeline, rgbCam = initPipeline(rgbRes, monoRes, fps)
     with dai.Device(pipeline) as device:
+      # RGB needs fixed focus to properly align with depth
+      calibrationbData = device.readCalibration()
+      lensPosition = calibrationbData.getLensPosition(dai.CameraBoardSocket.RGB)
+      rgbCam.initialControl.setManualFocus(lensPosition)
+
       rgbH265Q = device.getOutputQueue(
           name="rgbH265", maxSize=fps, blocking=True)
       leftH265Q = device.getOutputQueue(
@@ -70,19 +72,21 @@ if __name__ == "__main__":
       print("Press Ctrl+C to stop recording")
 
       timestamp = datetime.now().astimezone().isoformat().replace(":", ";")
+      calibrationPath = outputDirPath.joinpath(
+          f".cache.[{timestamp}]calibration.json")
       rgbH265Path = outputDirPath.joinpath(f".cache.[{timestamp}]rgb.h265")
       leftH265Path = outputDirPath.joinpath(f".cache.[{timestamp}]left.h265")
       rightH265Path = outputDirPath.joinpath(f".cache.[{timestamp}]right.h265")
 
-      # Write video files
+      # Write files
       with open(rgbH265Path,
                 "wb") as rgbFile, open(leftH265Path, "wb") as leftFile, open(
                     rightH265Path, "wb") as rightFile:
         startTime = datetime.now()
         while True:
           try:
-            runningTime = datetime.now() - startTime
-            print(f"\rRecording: {runningTime.seconds}s...", end="")
+            recordingTime = datetime.now() - startTime
+            print(f"\rRecording: {recordingTime.seconds}s...", end="")
             while rgbH265Q.has():
               rgbH265Q.get().getData().tofile(rgbFile)
             while leftH265Q.has():
@@ -91,16 +95,13 @@ if __name__ == "__main__":
               rightH265Q.get().getData().tofile(rightFile)
           except KeyboardInterrupt:
             break
-        print("\nStop recording...")
-
-      timestamp = startTime.astimezone().isoformat().replace(":", ";")
-      # Write calibration file
-      print("Backing up calibration...")
-      calibrationPath = outputDirPath.joinpath(f"[{timestamp}]calibration.json")
-      calibData = device.readCalibration()
-      calibData.eepromToJsonFile(calibrationPath)
+      print("\nStop recording...")
+      calibrationbData.eepromToJsonFile(calibrationPath)
 
     # More accurate timestamp
+    timestamp = startTime.astimezone().isoformat().replace(":", ";")
+    calibrationPath = calibrationPath.rename(
+        outputDirPath.joinpath(f"[{timestamp}]calibration.json"))
     rgbH265Path = rgbH265Path.rename(
         outputDirPath.joinpath(f"[{timestamp}]rgb.h265"))
     leftH265Path = leftH265Path.rename(
