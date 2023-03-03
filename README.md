@@ -1,18 +1,18 @@
 # depthai-video-recording
 
 ```
-Record RGB and stereo video with OAK-D
+Record RGB and stereo video with DepthAI OAK-D
 
 options:
   -h, --help     Show this help message and exit
   -p, --preview  Show preview, nothing will be recorded
-  -m, --mp4      Convert the raw H.265 file to mp4 (Require ffmpeg be installed)
+  -m, --mp4      Convert the raw H.265 file to MP4 after recording (Require ffmpeg be installed)
   -o, --out      Specify output directory path, default value is "output"
 ```
 
 ## Requirements
 
-* ffmpeg (Require for convert the raw H.265 file to mp4)
+* ffmpeg (Required if specify option `-m`)
 
 ## Dependencies
 

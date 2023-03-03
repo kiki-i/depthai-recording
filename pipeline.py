@@ -23,6 +23,11 @@ def initPipeline(rgbRes, monoRes, fps: int = 30):
   leftH265.setStreamName("leftH265")
   rightH265.setStreamName("rightH265")
 
+  ## For get timestamp
+  metadata = pipeline.create(dai.node.XLinkOut)
+  metadata.setStreamName("metadata")
+  metadata.setMetadataOnly(True)
+
   # Link nodes
   rgbCam.video.link(rgbEncoder.input)
   leftCam.out.link(leftEncoder.input)
@@ -31,6 +36,8 @@ def initPipeline(rgbRes, monoRes, fps: int = 30):
   rgbEncoder.bitstream.link(rgbH265.input)
   leftEncoder.bitstream.link(leftH265.input)
   rightEncoder.bitstream.link(rightH265.input)
+
+  rgbCam.video.link(metadata.input)
 
   # Config cameras
   rgbCam.setBoardSocket(dai.CameraBoardSocket.RGB)

@@ -1,6 +1,8 @@
 from config import *
 from pipeline import *
 
+import depthai as dai
+
 import cv2
 import numpy as np
 

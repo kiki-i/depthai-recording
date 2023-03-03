@@ -6,14 +6,18 @@ from preview import *
 
 import depthai as dai
 
-from datetime import datetime
+from datetime import timedelta, datetime
 from pathlib import Path
 
 import argparse
 
 
+def getFrameTime(timestamp: timedelta) -> datetime:
+  return datetime.now() - (dai.Clock.now() - timestamp)
+
+
 def parseCli():
-  description = "Record RGB and stereo video with OAK-D"
+  description = "Record RGB and stereo video with DepthAI OAK-D"
   parser = argparse.ArgumentParser(description=description)
   parser.add_argument(
       "-p",
@@ -28,7 +32,8 @@ def parseCli():
       action="store_const",
       const=True,
       default=False,
-      help="Convert the raw H.265 file to mp4 (Require ffmpeg be installed)")
+      help="Convert the raw H.265 file to MP4 after recording (Require ffmpeg be installed)"
+  )
   parser.add_argument(
       "-o",
       "--out",
@@ -62,31 +67,50 @@ if __name__ == "__main__":
       lensPosition = calibrationbData.getLensPosition(dai.CameraBoardSocket.RGB)
       rgbCam.initialControl.setManualFocus(lensPosition)
 
+      # Output queues
       rgbH265Q = device.getOutputQueue(
           name="rgbH265", maxSize=fps, blocking=True)
       leftH265Q = device.getOutputQueue(
           name="leftH265", maxSize=fps, blocking=True)
       rightH265Q = device.getOutputQueue(
           name="rightH265", maxSize=fps, blocking=True)
+      metadataQ = device.getOutputQueue(
+          name="metadata", maxSize=1, blocking=True)
 
-      print("Press Ctrl+C to stop recording")
+      # Approximate timestamp
+      startTime = datetime.now()
+      timestamp = startTime.astimezone().isoformat().replace(":", ";")
 
-      timestamp = datetime.now().astimezone().isoformat().replace(":", ";")
-      calibrationPath = outputDirPath.joinpath(
-          f".cache.[{timestamp}]calibration.json")
       rgbH265Path = outputDirPath.joinpath(f".cache.[{timestamp}]rgb.h265")
       leftH265Path = outputDirPath.joinpath(f".cache.[{timestamp}]left.h265")
       rightH265Path = outputDirPath.joinpath(f".cache.[{timestamp}]right.h265")
+
+      # Backup calibration data
+      calibrationPath = outputDirPath.joinpath(
+          f".cache.[{timestamp}]calibration.json")
+      calibrationbData.eepromToJsonFile(calibrationPath)
 
       # Write files
       with open(rgbH265Path,
                 "wb") as rgbFile, open(leftH265Path, "wb") as leftFile, open(
                     rightH265Path, "wb") as rightFile:
-        startTime = datetime.now()
+        recordingTime = timedelta()
         while True:
-          try:
+          # Get first RGB frame accurate timestamp
+          if not recordingTime:
+            preview = metadataQ.tryGet()
+            if preview:
+              previewFrame = preview
+              startTime = getFrameTime(preview.getTimestamp())
+              print(f"Start recording at {startTime} (Press Ctrl+C to stop)")
+              recordingTime = datetime.now() - startTime
+          else:
             recordingTime = datetime.now() - startTime
-            print(f"\rRecording: {recordingTime.seconds}s...", end="")
+
+          # Recording
+          try:
+            if recordingTime:
+              print(f"\rRecording: {recordingTime.seconds}s...", end="")
             while rgbH265Q.has():
               rgbH265Q.get().getData().tofile(rgbFile)
             while leftH265Q.has():
@@ -96,18 +120,17 @@ if __name__ == "__main__":
           except KeyboardInterrupt:
             break
       print("\nStop recording...")
-      calibrationbData.eepromToJsonFile(calibrationPath)
 
     # More accurate timestamp
     timestamp = startTime.astimezone().isoformat().replace(":", ";")
-    calibrationPath = calibrationPath.rename(
-        outputDirPath.joinpath(f"[{timestamp}]calibration.json"))
     rgbH265Path = rgbH265Path.rename(
         outputDirPath.joinpath(f"[{timestamp}]rgb.h265"))
     leftH265Path = leftH265Path.rename(
         outputDirPath.joinpath(f"[{timestamp}]left.h265"))
     rightH265Path = rightH265Path.rename(
         outputDirPath.joinpath(f"[{timestamp}]right.h265"))
+    calibrationPath = calibrationPath.rename(
+        outputDirPath.joinpath(f"[{timestamp}]calibration.json"))
 
     # Convert to MP4
     if cliArgs.mp4:
@@ -122,4 +145,4 @@ if __name__ == "__main__":
       }
       convertor.convertAll(processPaths)
 
-    print(f"Output files in: \"{outputDirPath}\"")
+    print(f"Output files in: \"{outputDirPath.absolute()}\"")
