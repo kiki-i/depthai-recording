@@ -61,6 +61,10 @@ def initPipeline(rgbRes, monoRes, fps: int = 30):
   leftEncoder.setQuality(encoderQuality)
   rightEncoder.setQuality(encoderQuality)
 
+  rgbEncoder.setKeyframeFrequency(int(keyframeFrequency))
+  leftEncoder.setKeyframeFrequency(int(keyframeFrequency))
+  rightEncoder.setKeyframeFrequency(int(keyframeFrequency))
+
   return pipeline, rgbCam
 
 
