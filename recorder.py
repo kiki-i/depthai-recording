@@ -169,10 +169,6 @@ class Recorder():
              keyframeFrequency: int = 0):
     self.__initRecord(encoder, encoderQuality, keyframeFrequency)
 
-    # Check output path
-    if not outputDirPath.exists():
-      outputDirPath.mkdir(parents=True, exist_ok=True)
-
     # Recording
     with dai.Device(self.__pipeline) as device:
       # RGB needs fixed focus to properly align with depth
@@ -182,7 +178,7 @@ class Recorder():
 
       # Output queues
       metadataQ = device.getOutputQueue(
-          name="metadata", maxSize=1, blocking=False)
+          name="metadata", maxSize=self.fps, blocking=True)
       rgbH265Q = device.getOutputQueue(
           name="rgbH265", maxSize=self.fps, blocking=True)
       leftH265Q = device.getOutputQueue(
@@ -190,34 +186,46 @@ class Recorder():
       rightH265Q = device.getOutputQueue(
           name="rightH265", maxSize=self.fps, blocking=True)
 
-      # Get first RGB frame accurate timestamp
+      # Init output path
       startTime = self.__getFrameTime(metadataQ.get().getTimestamp())
-      timestamp = startTime.astimezone().isoformat().replace(":", ";")
-
-      tag = f"[{timestamp}][{self.fps}FPS]"
+      dirTimestamp = startTime.astimezone().isoformat().replace(":", ";")
+      tag = f"[{dirTimestamp}][{self.fps}FPS]"
       if encoder == "lossless":
         tag = tag + "[Lossless]"
-        extension = "mjpeg"
+        videoExt = "mjpeg"
       else:
-        extension = encoder
-      rgbH265Path = outputDirPath.joinpath(f"{tag}rgb.{extension}")
-      leftH265Path = outputDirPath.joinpath(f"{tag}left.{extension}")
-      rightH265Path = outputDirPath.joinpath(f"{tag}right.{extension}")
+        videoExt = encoder
+
+      outputDirPath.mkdir(parents=True, exist_ok=True)
+      subDirPath = outputDirPath.joinpath(f"{tag}/")
+      subDirPath.mkdir(exist_ok=True)
+
+      timestampPath = subDirPath.joinpath(f"timestamp.txt")
+      timestampPath.unlink(True)
+      rgbH265Path = subDirPath.joinpath(f"rgb.{videoExt}")
+      leftH265Path = subDirPath.joinpath(f"left.{videoExt}")
+      rightH265Path = subDirPath.joinpath(f"right.{videoExt}")
 
       # Backup calibration data
-      calibrationPath = outputDirPath.joinpath(f"{tag}calibration.json")
+      calibrationPath = subDirPath.joinpath(f"calibration.json")
       calibration.eepromToJsonFile(calibrationPath)
 
       # Write files
-      with open(rgbH265Path,
-                "wb") as rgbFile, open(leftH265Path, "wb") as leftFile, open(
-                    rightH265Path, "wb") as rightFile:
+      with open(timestampPath, "at") as timestampFile, open(
+          rgbH265Path,
+          "wb") as rgbFile, open(leftH265Path,
+                                 "wb") as leftFile, open(rightH265Path,
+                                                         "wb") as rightFile:
         # Recording
         print(f"{startTime}, start recording (Press Ctrl+C to stop)")
+        timestampFile.write(startTime.astimezone().isoformat() + "\n")
         while True:
           try:
             recordingTime = datetime.now() - startTime
             print(f"\rRecording: {recordingTime}...", end="")
+            while metadataQ.has():
+              timestamp = self.__getFrameTime(metadataQ.get().getTimestamp())
+              timestampFile.write(timestamp.astimezone().isoformat() + "\n")
             while rgbH265Q.has():
               rgbH265Q.get().getData().tofile(rgbFile)
             while leftH265Q.has():
