@@ -1,13 +1,18 @@
-# depthai-video-recording
+# depthai-recording
 
 ```
 Record RGB and stereo video with DepthAI OAK-D
 
 options:
-  -h, --help     Show this help message and exit
-  -p, --preview  Show preview, nothing will be recorded
-  -m, --mp4      Convert the raw H.265 file to MP4 after recording (Require ffmpeg be installed)
-  -o, --out      Specify output directory path, default value is "output"
+  -h, --help       show this help message and exit
+  -p, --preview    Show preview, nothing will be recorded
+  -c, --codec      Available codecs: ["h265", "mjpeg", "lossless"], default value is "h265"
+  -f, --fps        Specify FPS, default value is "30"
+  -q, --quality    Encoding quality, default value is "100"
+  -m, --mp4        Convert the raw stream files to MP4 after recording (Require ffmpeg be installed)
+  -o, --out        Output directory path, default value is "output"
+  --rgbres         RGB camera resolution: ["12mp", "4k", "1080p"], default value is "1080p"
+  --monores        Mono camera resolution: ["800p", "720p", "400p"], default value is "800p"
 ```
 
 ## Requirements

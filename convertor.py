@@ -1,9 +1,8 @@
-from config import *
-
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
 
+import re
 import subprocess
 
 
@@ -39,6 +38,7 @@ def convertAll(processPaths: dict[Path, Path]):
 
 def convertToMp4(inputPath: Path, outputPath: Path) -> str:
   error = ""
+  fps = int(re.search(r"\[(\d+)FPS\]", str(inputPath.name)).group(1))
   result = subprocess.run(
       f"ffmpeg -framerate {fps} -i {inputPath} -c copy -y {outputPath}",
       capture_output=True,
