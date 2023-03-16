@@ -21,8 +21,10 @@ class Recorder():
         "400p": dai.MonoCameraProperties.SensorResolution.THE_400_P,
     }
 
-    self.rgbRes = rgbResMap[rgbRes]
-    self.monoRes = monoResMap[monoRes]
+    self.rgbRes = rgbRes
+    self.rgbResPreset = rgbResMap[rgbRes]
+    self.monoRes = monoRes
+    self.monoResPreset = monoResMap[monoRes]
     self.fps = fps
 
   def __initRecord(self,
@@ -76,16 +78,17 @@ class Recorder():
     leftCam.setBoardSocket(dai.CameraBoardSocket.LEFT)
     rightCam.setBoardSocket(dai.CameraBoardSocket.RIGHT)
 
-    rgbCam.setResolution(self.rgbRes)
-    leftCam.setResolution(self.monoRes)
-    rightCam.setResolution(self.monoRes)
+    rgbCam.setResolution(self.rgbResPreset)
+    leftCam.setResolution(self.monoResPreset)
+    rightCam.setResolution(self.monoResPreset)
 
     rgbCam.setFps(self.fps)
     leftCam.setFps(self.fps)
     rightCam.setFps(self.fps)
 
     # Config encoder
-    rgbEncoder.setDefaultProfilePreset(rgbCam.getFps(), encoderProfile)
+    rgbEncoder.setDefaultProfilePreset(
+        rgbCam.getFps(), dai.VideoEncoderProperties.Profile.H265_MAIN)
     leftEncoder.setDefaultProfilePreset(leftCam.getFps(), encoderProfile)
     rightEncoder.setDefaultProfilePreset(rgbCam.getFps(), encoderProfile)
 
@@ -133,9 +136,9 @@ class Recorder():
     leftCam.setBoardSocket(dai.CameraBoardSocket.LEFT)
     rightCam.setBoardSocket(dai.CameraBoardSocket.RIGHT)
 
-    rgbCam.setResolution(self.rgbRes)
-    leftCam.setResolution(self.monoRes)
-    rightCam.setResolution(self.monoRes)
+    rgbCam.setResolution(self.rgbResPreset)
+    leftCam.setResolution(self.monoResPreset)
+    rightCam.setResolution(self.monoResPreset)
 
     rgbCam.setFps(self.fps)
     leftCam.setFps(self.fps)
@@ -202,9 +205,12 @@ class Recorder():
 
       timestampPath = subDirPath.joinpath(f"timestamp.txt")
       timestampPath.unlink(True)
-      rgbH265Path = subDirPath.joinpath(f"rgb.{videoExt}")
-      leftH265Path = subDirPath.joinpath(f"left.{videoExt}")
-      rightH265Path = subDirPath.joinpath(f"right.{videoExt}")
+      rgbH265Path = subDirPath.joinpath(
+          f"[{self.rgbRes.title()}]rgb.{videoExt}")
+      leftH265Path = subDirPath.joinpath(
+          f"[{self.monoRes.title()}]left.{videoExt}")
+      rightH265Path = subDirPath.joinpath(
+          f"[{self.monoRes.title()}]right.{videoExt}")
 
       # Backup calibration data
       calibrationPath = subDirPath.joinpath(f"calibration.json")
