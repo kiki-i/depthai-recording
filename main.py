@@ -11,8 +11,13 @@ if __name__ == "__main__":
   # Init
   print("Init...")
   cliArgs = parseCli()
-  recorder = Recorder(cliArgs.rgbres, cliArgs.monores, cliArgs.fps)
+  rgbRes, monoRes = parseCliRes(cliArgs.resolution)
+  rgbEncoder, monoEncoder = parseCliEncoder(cliArgs.encoder)
+  recorder = Recorder(rgbRes, monoRes, cliArgs.fps)
+
   if cliArgs.preview:
     recorder.preview()
   else:
-    recorder.record(Path(cliArgs.out), cliArgs.codec, cliArgs.quality)
+    recorder.record(
+        Path(cliArgs.out), rgbEncoder, monoEncoder, cliArgs.quality,
+        cliArgs.keyframe)

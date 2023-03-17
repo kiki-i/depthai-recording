@@ -27,16 +27,15 @@ class Recorder():
     self.monoResPreset = monoResMap[monoRes]
     self.fps = fps
 
-  def __initRecord(self,
-                   encoder: str = "h265",
-                   encoderQuality: int = 100,
-                   keyframeFrequency: int = 0):
-    encoderProfileMap = {
+  def __initRecord(self, rgbProfile: str, monoProfile: str, quality: int,
+                   keyframeFrequency: int):
+    profilePresetMap = {
         "h265": dai.VideoEncoderProperties.Profile.H265_MAIN,
         "mjpeg": dai.VideoEncoderProperties.Profile.MJPEG,
         "lossless": dai.VideoEncoderProperties.Profile.MJPEG,
     }
-    encoderProfile = encoderProfileMap[encoder]
+    rgbProfilePreset = profilePresetMap[rgbProfile]
+    monoProfilePreset = profilePresetMap[monoProfile]
 
     pipeline = dai.Pipeline()
 
@@ -87,15 +86,15 @@ class Recorder():
     rightCam.setFps(self.fps)
 
     # Config encoder
-    rgbEncoder.setDefaultProfilePreset(rgbCam.getFps(), encoderProfile)
-    leftEncoder.setDefaultProfilePreset(leftCam.getFps(), encoderProfile)
-    rightEncoder.setDefaultProfilePreset(rgbCam.getFps(), encoderProfile)
+    rgbEncoder.setDefaultProfilePreset(rgbCam.getFps(), rgbProfilePreset)
+    leftEncoder.setDefaultProfilePreset(leftCam.getFps(), monoProfilePreset)
+    rightEncoder.setDefaultProfilePreset(rgbCam.getFps(), monoProfilePreset)
 
-    rgbEncoder.setQuality(encoderQuality)
-    leftEncoder.setQuality(encoderQuality)
-    rightEncoder.setQuality(encoderQuality)
+    rgbEncoder.setQuality(quality)
+    leftEncoder.setQuality(quality)
+    rightEncoder.setQuality(quality)
 
-    if encoder == "lossless":
+    if rgbEncoder == "lossless":
       rgbEncoder.setLossless(True)
       leftEncoder.setLossless(True)
       rightEncoder.setLossless(True)
@@ -163,12 +162,9 @@ class Recorder():
     self.__depthWeight = depthPercent
     self.__rgbWeight = 100 - self.__depthWeight
 
-  def record(self,
-             outputDirPath: Path,
-             encoder: str,
-             encoderQuality: int,
-             keyframeFrequency: int = 0):
-    self.__initRecord(encoder, encoderQuality, keyframeFrequency)
+  def record(self, outputDirPath: Path, rgbProfile: str, monoProfile: str,
+             quality: int, keyframeFrequency: int):
+    self.__initRecord(rgbProfile, monoProfile, quality, keyframeFrequency)
 
     # Recording
     with dai.Device(self.__pipeline) as device:
@@ -191,11 +187,17 @@ class Recorder():
       startTime = self.__getFrameTime(metadataQ.get().getTimestamp())
       dirTimestamp = startTime.astimezone().isoformat().replace(":", ";")
       tag = f"[{dirTimestamp}][{self.fps}FPS]"
-      if encoder == "lossless":
-        tag = tag + "[Lossless]"
-        videoExt = "mjpeg"
+
+      ## Init tag
+      tag += f"[{rgbProfile},{monoProfile}]"
+      if rgbProfile == "lossless":
+        rgbExt = "mjpeg"
       else:
-        videoExt = encoder
+        rgbExt = rgbProfile
+      if monoProfile == "lossless":
+        monoExt = "mjpeg"
+      else:
+        monoExt = monoProfile
 
       outputDirPath.mkdir(parents=True, exist_ok=True)
       subDirPath = outputDirPath.joinpath(f"{tag}/")
@@ -207,11 +209,11 @@ class Recorder():
 
       ## Video output
       rgbEncodedPath = subDirPath.joinpath(
-          f"[{self.rgbRes.title()}]rgb.{videoExt}")
+          f"[{self.rgbRes.title()}]rgb.{rgbExt}")
       leftEncodedPath = subDirPath.joinpath(
-          f"[{self.monoRes.title()}]left.{videoExt}")
+          f"[{self.monoRes.title()}]left.{monoExt}")
       rightH265Path = subDirPath.joinpath(
-          f"[{self.monoRes.title()}]right.{videoExt}")
+          f"[{self.monoRes.title()}]right.{monoExt}")
 
       ## Timestamp output
       timestampPath = subDirPath.joinpath(f"timestamp.txt")
