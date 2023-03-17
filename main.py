@@ -15,5 +15,4 @@ if __name__ == "__main__":
   if cliArgs.preview:
     recorder.preview()
   else:
-    recorder.record(
-        Path(cliArgs.out), cliArgs.mp4, cliArgs.codec, cliArgs.quality)
+    recorder.record(Path(cliArgs.out), cliArgs.codec, cliArgs.quality)

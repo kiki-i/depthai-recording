@@ -18,7 +18,7 @@ def parseCli():
       choices=["h265", "mjpeg", "lossless"],
       metavar="",
       default="lossless",
-      help="Available codecs: [\"h265\", \"mjpeg\", \"lossless\"], default = \"lossless\""
+      help="Available codecs: [\"lossless\", \"mjpeg\", \"h265\"], default = \"lossless\""
   )
   parser.add_argument(
       "-f",
@@ -34,14 +34,6 @@ def parseCli():
       metavar="",
       default=100,
       help="Encoding quality between 0-100, default = \"100\"")
-  parser.add_argument(
-      "-m",
-      "--mp4",
-      action="store_const",
-      const=True,
-      default=False,
-      help="Convert the raw stream files to MP4 after recording (Require ffmpeg be installed)"
-  )
   parser.add_argument(
       "-o",
       "--out",

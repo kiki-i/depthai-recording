@@ -49,12 +49,12 @@ class Recorder():
     leftEncoder = pipeline.create(dai.node.VideoEncoder)
     rightEncoder = pipeline.create(dai.node.VideoEncoder)
 
-    rgbH265 = pipeline.create(dai.node.XLinkOut)
-    leftH265 = pipeline.create(dai.node.XLinkOut)
+    rgbEncoded = pipeline.create(dai.node.XLinkOut)
+    leftEncoded = pipeline.create(dai.node.XLinkOut)
     rightH265 = pipeline.create(dai.node.XLinkOut)
 
-    rgbH265.setStreamName("rgbH265")
-    leftH265.setStreamName("leftH265")
+    rgbEncoded.setStreamName("rgbEncoded")
+    leftEncoded.setStreamName("leftEncoded")
     rightH265.setStreamName("rightH265")
 
     ## For get timestamp
@@ -67,8 +67,8 @@ class Recorder():
     leftCam.out.link(leftEncoder.input)
     rightCam.out.link(rightEncoder.input)
 
-    rgbEncoder.bitstream.link(rgbH265.input)
-    leftEncoder.bitstream.link(leftH265.input)
+    rgbEncoder.bitstream.link(rgbEncoded.input)
+    leftEncoder.bitstream.link(leftEncoded.input)
     rightEncoder.bitstream.link(rightH265.input)
 
     rgbCam.video.link(metadata.input)
@@ -87,8 +87,7 @@ class Recorder():
     rightCam.setFps(self.fps)
 
     # Config encoder
-    rgbEncoder.setDefaultProfilePreset(
-        rgbCam.getFps(), dai.VideoEncoderProperties.Profile.H265_MAIN)
+    rgbEncoder.setDefaultProfilePreset(rgbCam.getFps(), encoderProfile)
     leftEncoder.setDefaultProfilePreset(leftCam.getFps(), encoderProfile)
     rightEncoder.setDefaultProfilePreset(rgbCam.getFps(), encoderProfile)
 
@@ -166,7 +165,6 @@ class Recorder():
 
   def record(self,
              outputDirPath: Path,
-             convertToMp4: bool,
              encoder: str,
              encoderQuality: int,
              keyframeFrequency: int = 0):
@@ -182,11 +180,11 @@ class Recorder():
       # Output queues
       metadataQ = device.getOutputQueue(
           name="metadata", maxSize=self.fps, blocking=True)
-      rgbH265Q = device.getOutputQueue(
-          name="rgbH265", maxSize=self.fps, blocking=True)
-      leftH265Q = device.getOutputQueue(
-          name="leftH265", maxSize=self.fps, blocking=True)
-      rightH265Q = device.getOutputQueue(
+      rgbEncodedQ = device.getOutputQueue(
+          name="rgbEncoded", maxSize=self.fps, blocking=True)
+      leftEncodedQ = device.getOutputQueue(
+          name="leftEncoded", maxSize=self.fps, blocking=True)
+      rightEncoded = device.getOutputQueue(
           name="rightH265", maxSize=self.fps, blocking=True)
 
       # Init output path
@@ -203,23 +201,26 @@ class Recorder():
       subDirPath = outputDirPath.joinpath(f"{tag}/")
       subDirPath.mkdir(exist_ok=True)
 
-      timestampPath = subDirPath.joinpath(f"timestamp.txt")
-      timestampPath.unlink(True)
-      rgbH265Path = subDirPath.joinpath(
+      ## Calibration data output
+      calibrationPath = subDirPath.joinpath(f"calibration.json")
+      calibration.eepromToJsonFile(calibrationPath)
+
+      ## Video output
+      rgbEncodedPath = subDirPath.joinpath(
           f"[{self.rgbRes.title()}]rgb.{videoExt}")
-      leftH265Path = subDirPath.joinpath(
+      leftEncodedPath = subDirPath.joinpath(
           f"[{self.monoRes.title()}]left.{videoExt}")
       rightH265Path = subDirPath.joinpath(
           f"[{self.monoRes.title()}]right.{videoExt}")
 
-      # Backup calibration data
-      calibrationPath = subDirPath.joinpath(f"calibration.json")
-      calibration.eepromToJsonFile(calibrationPath)
+      ## Timestamp output
+      timestampPath = subDirPath.joinpath(f"timestamp.txt")
+      timestampPath.unlink(True)
 
       # Write files
       with open(timestampPath, "at") as timestampFile, open(
-          rgbH265Path,
-          "wb") as rgbFile, open(leftH265Path,
+          rgbEncodedPath,
+          "wb") as rgbFile, open(leftEncodedPath,
                                  "wb") as leftFile, open(rightH265Path,
                                                          "wb") as rightFile:
         # Recording
@@ -229,32 +230,19 @@ class Recorder():
           try:
             recordingTime = datetime.now() - startTime
             print(f"\rRecording: {recordingTime}...", end="")
+
             while metadataQ.has():
               timestamp = self.__getFrameTime(metadataQ.get().getTimestamp())
               timestampFile.write(timestamp.astimezone().isoformat() + "\n")
-            while rgbH265Q.has():
-              rgbH265Q.get().getData().tofile(rgbFile)
-            while leftH265Q.has():
-              leftH265Q.get().getData().tofile(leftFile)
-            while rightH265Q.has():
-              rightH265Q.get().getData().tofile(rightFile)
+            while rgbEncodedQ.has():
+              rgbEncodedQ.get().getData().tofile(rgbFile)
+            while leftEncodedQ.has():
+              leftEncodedQ.get().getData().tofile(leftFile)
+            while rightEncoded.has():
+              rightEncoded.get().getData().tofile(rightFile)
           except KeyboardInterrupt:
             break
       print("\nStop recording...")
-
-    # Convert to MP4
-    if convertToMp4:
-      import convertor
-      rgbMp4Path = rgbH265Path.with_suffix(".mp4")
-      leftMp4Path = leftH265Path.with_suffix(".mp4")
-      rightMp4Path = rightH265Path.with_suffix(".mp4")
-      processPaths = {
-          rgbH265Path: rgbMp4Path,
-          leftH265Path: leftMp4Path,
-          rightH265Path: rightMp4Path
-      }
-      convertor.convertAll(processPaths)
-
     print(f"Output files in: \"{outputDirPath.absolute()}\"")
 
   def preview(self):
@@ -265,9 +253,6 @@ class Recorder():
       lensPosition = calibrationbData.getLensPosition(dai.CameraBoardSocket.RGB)
       self.__rgbCam.initialControl.setManualFocus(lensPosition)
 
-      rgbFrame = None
-      disparityFrame = None
-
       # Trackbar adjusts blending ratio of rgb/depth
       windowName = "Preview"
       cv2.namedWindow(windowName)
@@ -275,23 +260,23 @@ class Recorder():
                          self.__updateBlendWeights)
 
       print("Previewing... (Press Q on frame or Ctrl+C to stop)")
+
+      rgbFrame = None
+      disparityFrame = None
       while True:
         try:
-          latestPacket = {}
-          latestPacket["rgbOut"] = None
-          latestPacket["disparityOut"] = None
-
-          queueEvents = device.getQueueEvents(("rgbOut", "disparityOut"))
-          for queueName in queueEvents:
-            packets = device.getOutputQueue(queueName).tryGetAll()
+          latestFrame = {"rgbOut": None, "disparityOut": None}
+          queues = device.getQueueEvents([x for x in latestFrame.keys()])
+          for queue in queues:
+            packets = device.getOutputQueue(queue).tryGetAll()
             if len(packets) > 0:
-              latestPacket[queueName] = packets[-1]
+              latestFrame[queue] = packets[-1]
 
-          if latestPacket["rgbOut"] is not None:
-            rgbFrame = latestPacket["rgbOut"].getCvFrame()
+          if latestFrame["rgbOut"] is not None:
+            rgbFrame = latestFrame["rgbOut"].getCvFrame()
 
-          if latestPacket["disparityOut"] is not None:
-            disparityFrame = latestPacket["disparityOut"].getFrame()
+          if latestFrame["disparityOut"] is not None:
+            disparityFrame = latestFrame["disparityOut"].getFrame()
             disparityFrame = (disparityFrame * 255. /
                               self.__maxDisparity).astype(np.uint8)
             disparityFrame = cv2.applyColorMap(disparityFrame,
@@ -300,7 +285,6 @@ class Recorder():
 
           # Blend when both received
           if (rgbFrame is not None) and (disparityFrame is not None):
-            # Need to have both frames in BGR format before blending
             if len(disparityFrame.shape) < 3:
               disparityFrame = cv2.cvtColor(disparityFrame, cv2.COLOR_GRAY2BGR)
             blended = cv2.addWeighted(rgbFrame,
