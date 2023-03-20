@@ -27,6 +27,16 @@ class Recorder():
     self.monoResPreset = monoResMap[monoRes]
     self.fps = fps
 
+  def __createPreviewWindow(self, windowName: str):
+    self.__depthWeight = 100
+    self.__rgbWeight = 0
+    cv2.namedWindow(windowName)
+    cv2.createTrackbar("Depth%", windowName, self.__depthWeight, 100,
+                       self.__updateBlendWeights)
+
+  def __getFrameTime(self, timestamp: timedelta) -> datetime:
+    return datetime.now() - (dai.Clock.now() - timestamp)
+
   def __initRecord(self, rgbProfile: str, monoProfile: str, quality: int,
                    keyframeFrequency: int):
     profilePresetMap = {
@@ -155,8 +165,24 @@ class Recorder():
     self.__rgbCam = rgbCam
     self.__maxDisparity = maxDisparity
 
-  def __getFrameTime(self, timestamp: timedelta) -> datetime:
-    return datetime.now() - (dai.Clock.now() - timestamp)
+  def __showPreview(self,
+                    rgbFrame: cv2.Mat,
+                    disparityFrame: np.ndarray,
+                    windowsName: str = "",
+                    text: str = ""):
+    disparityFrame = (disparityFrame * 255. / self.__maxDisparity).astype(
+        np.uint8)
+    disparityFrame = cv2.applyColorMap(disparityFrame, cv2.COLORMAP_BONE)
+    disparityFrame = np.ascontiguousarray(disparityFrame)
+
+    if len(disparityFrame.shape) < 3:
+      disparityFrame = cv2.cvtColor(disparityFrame, cv2.COLOR_GRAY2BGR)
+    blended = cv2.addWeighted(rgbFrame,
+                              float(self.__rgbWeight) / 100, disparityFrame,
+                              float(self.__depthWeight) / 100, 0)
+    cv2.putText(blended, text, (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                (255, 255, 255), 3)
+    cv2.imshow(windowsName, blended)
 
   def __updateBlendWeights(self, depthPercent):
     self.__depthWeight = depthPercent
@@ -208,12 +234,11 @@ class Recorder():
       calibration.eepromToJsonFile(calibrationPath)
 
       ## Video output
-      rgbEncodedPath = subDirPath.joinpath(
-          f"[{self.rgbRes.title()}]rgb.{rgbExt}")
-      leftEncodedPath = subDirPath.joinpath(
-          f"[{self.monoRes.title()}]left.{monoExt}")
-      rightH265Path = subDirPath.joinpath(
-          f"[{self.monoRes.title()}]right.{monoExt}")
+      rgbTag = self.rgbRes.title()
+      monoTag = self.monoRes.title()
+      rgbEncodedPath = subDirPath.joinpath(f"[{rgbTag}]rgb.{rgbExt}")
+      leftEncodedPath = subDirPath.joinpath(f"[{monoTag}]left.{monoExt}")
+      rightH265Path = subDirPath.joinpath(f"[{monoTag}]right.{monoExt}")
 
       ## Timestamp output
       timestampPath = subDirPath.joinpath(f"timestamp.txt")
@@ -255,14 +280,9 @@ class Recorder():
       lensPosition = calibrationbData.getLensPosition(dai.CameraBoardSocket.RGB)
       self.__rgbCam.initialControl.setManualFocus(lensPosition)
 
-      # Trackbar adjusts blending ratio of rgb/depth
-      windowName = "Preview"
-      cv2.namedWindow(windowName)
-      cv2.createTrackbar("Depth%", windowName, self.__depthWeight, 100,
-                         self.__updateBlendWeights)
-
       print("Previewing... (Press Q on frame or Ctrl+C to stop)")
 
+      self.__createPreviewWindow("Preview")
       rgbFrame = None
       disparityFrame = None
       while True:
@@ -279,21 +299,9 @@ class Recorder():
 
           if latestFrame["disparityOut"] is not None:
             disparityFrame = latestFrame["disparityOut"].getFrame()
-            disparityFrame = (disparityFrame * 255. /
-                              self.__maxDisparity).astype(np.uint8)
-            disparityFrame = cv2.applyColorMap(disparityFrame,
-                                               cv2.COLORMAP_BONE)
-            disparityFrame = np.ascontiguousarray(disparityFrame)
 
-          # Blend when both received
           if (rgbFrame is not None) and (disparityFrame is not None):
-            if len(disparityFrame.shape) < 3:
-              disparityFrame = cv2.cvtColor(disparityFrame, cv2.COLOR_GRAY2BGR)
-            blended = cv2.addWeighted(rgbFrame,
-                                      float(self.__rgbWeight) / 100,
-                                      disparityFrame,
-                                      float(self.__depthWeight) / 100, 0)
-            cv2.imshow(windowName, blended)
+            self.__showPreview(rgbFrame, disparityFrame, "Preview")
             rgbFrame = None
             disparityFrame = None
 
