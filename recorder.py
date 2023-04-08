@@ -168,6 +168,7 @@ class Recorder():
   def __showPreview(self,
                     rgbFrame: cv2.Mat,
                     disparityFrame: np.ndarray,
+                    scaleFactor: float = 1,
                     windowsName: str = "",
                     text: str = ""):
     disparityFrame = (disparityFrame * 255. / self.__maxDisparity).astype(
@@ -182,7 +183,10 @@ class Recorder():
                               float(self.__depthWeight) / 100, 0)
     cv2.putText(blended, text, (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
                 (255, 255, 255), 3)
-    cv2.imshow(windowsName, blended)
+    scaledSize = (int(blended.shape[1] * scaleFactor),
+                  int(blended.shape[0] * scaleFactor))
+    scaled = cv2.resize(blended, scaledSize)
+    cv2.imshow(windowsName, scaled)
 
   def __updateBlendWeights(self, depthPercent):
     self.__depthWeight = depthPercent
@@ -241,8 +245,15 @@ class Recorder():
       rightH265Path = subDirPath.joinpath(f"[{monoTag}]right.{monoExt}")
 
       ## Timestamp output
-      timestampPath = subDirPath.joinpath(f"timestamp.txt")
+      timestampPath = subDirPath.joinpath(f"rgb-timestamp.txt")
       timestampPath.unlink(True)
+
+      rgbFrameCount: int = 0
+      leftFrameCount: int = 0
+      rightFrameCount: int = 0
+      rgbFps: float = 0.0
+      leftFps: float = 0.0
+      rightFps: float = 0.0
 
       # Write files
       with open(timestampPath, "at") as timestampFile, open(
@@ -256,17 +267,31 @@ class Recorder():
         while True:
           try:
             recordingTime = datetime.now() - startTime
-            print(f"\rRecording: {recordingTime}...", end="")
+            recordingSeconds = recordingTime.seconds
+            if recordingSeconds:
+              rgbFps: float = rgbFrameCount / recordingTime.seconds
+              leftFps: float = leftFrameCount / recordingTime.seconds
+              rightFps: float = rightFrameCount / recordingTime.seconds
+
+            rgbFpsStr: str = "%.1f" % rgbFps
+            leftFpsStr: str = "%.1f" % leftFps
+            rightFpsStr: str = "%.1f" % rightFps
+            print(
+                f"\rRecording: [{rgbFpsStr} L{leftFpsStr} R{rightFpsStr} FPS] {recordingTime}...",
+                end="")
 
             while metadataQ.has():
               timestamp = self.__getFrameTime(metadataQ.get().getTimestamp())
               timestampFile.write(timestamp.astimezone().isoformat() + "\n")
             while rgbEncodedQ.has():
               rgbEncodedQ.get().getData().tofile(rgbFile)
+              rgbFrameCount += 1
             while leftEncodedQ.has():
               leftEncodedQ.get().getData().tofile(leftFile)
+              leftFrameCount += 1
             while rightEncoded.has():
               rightEncoded.get().getData().tofile(rightFile)
+              rightFrameCount += 1
           except KeyboardInterrupt:
             break
       print("\nStop recording...")
@@ -282,7 +307,7 @@ class Recorder():
 
       print("Previewing... (Press Q on frame or Ctrl+C to stop)")
 
-      self.__createPreviewWindow("Preview")
+      self.__createPreviewWindow("Depth")
       rgbFrame = None
       disparityFrame = None
       while True:
@@ -301,7 +326,12 @@ class Recorder():
             disparityFrame = latestFrame["disparityOut"].getFrame()
 
           if (rgbFrame is not None) and (disparityFrame is not None):
-            self.__showPreview(rgbFrame, disparityFrame, "Preview")
+            scaleFactor: float = 1 / 2
+            self.__showPreview(rgbFrame, disparityFrame, scaleFactor, "Depth")
+
+            rgbShowSize = (int(rgbFrame.shape[1] * scaleFactor),
+                           int(rgbFrame.shape[0] * scaleFactor))
+
             rgbFrame = None
             disparityFrame = None
 
