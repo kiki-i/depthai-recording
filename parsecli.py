@@ -15,13 +15,15 @@ def parseCli():
   parser.add_argument(
       "-f",
       "--fps",
-      type=int,
       metavar="",
+      type=int,
+      choices=range(1, 61),
       default=30,
       help="Specify FPS, default = \"30\"")
   parser.add_argument(
       "-p",
       "--preview",
+      metavar="",
       action="store_const",
       const=True,
       default=False,
@@ -29,30 +31,31 @@ def parseCli():
   parser.add_argument(
       "-e",
       "--encoder",
-      type=str,
       metavar="",
+      type=str,
       default="lossless",
-      help="Encoder for RGB and Mono: <lossless|mjpeg|h265>[,<lossless|mjpeg|h265>], default = \"lossless\""
+      help="Encoder for RGB and Mono: <lossless|mjpeg|h265>[,<lossless|mjpeg|h265>], default = \"lossless\" (Single Value mean both have the same encoder)"
   )
   parser.add_argument(
       "-q",
       "--quality",
-      type=int,
       metavar="",
+      type=int,
+      choices=range(0, 101),
       default=100,
-      help="Encoding quality between 0-100, default = \"100\"")
+      help="Encoder quality between 0-100, default = \"100\"")
   parser.add_argument(
       "-k",
       "--keyframe",
-      type=int,
       metavar="",
+      type=int,
       default=0,
       help="Keyframe frequency, 0 means auto, default = \"0\"")
   parser.add_argument(
       "-o",
       "--out",
-      type=str,
       metavar="",
+      type=str,
       default="output",
       help="Output directory path, default = \"output\"")
   args = parser.parse_args()
@@ -68,6 +71,9 @@ def parseCliRes(cliRes: str) -> tuple[str, str]:
     rgbRes = "1080p"
   if monoRes == "":
     monoRes = "800p"
+
+  assert rgbRes in ("12mp", "4k", "1080p")
+  assert monoRes in ("800p", "720p", "400p")
   return rgbRes, monoRes
 
 
@@ -77,10 +83,13 @@ def parseCliEncoder(cliEncoder: str) -> tuple[str, str]:
   if "," in cliEncoder:
     rgbEncoder, monoEncoder = cliEncoder.split(",", 1)
     if rgbEncoder == "":
-      rgbEncoder = monoEncoder
+      rgbEncoder = "lossless"
     if monoEncoder == "":
-      monoEncoder = rgbEncoder
+      monoEncoder = "lossless"
   else:
     rgbEncoder = cliEncoder
     monoEncoder = cliEncoder
+
+  assert rgbEncoder in ("lossless", "mjpeg", "h265")
+  assert monoEncoder in ("lossless", "mjpeg", "h265")
   return rgbEncoder, monoEncoder
