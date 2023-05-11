@@ -60,11 +60,11 @@ class Recorder():
 
     rgbEncoded = pipeline.create(dai.node.XLinkOut)
     leftEncoded = pipeline.create(dai.node.XLinkOut)
-    rightH265 = pipeline.create(dai.node.XLinkOut)
+    rightEncoded = pipeline.create(dai.node.XLinkOut)
 
     rgbEncoded.setStreamName("rgbEncoded")
     leftEncoded.setStreamName("leftEncoded")
-    rightH265.setStreamName("rightH265")
+    rightEncoded.setStreamName("rightEncoded")
 
     ## For get timestamp
     metadata = pipeline.create(dai.node.XLinkOut)
@@ -78,7 +78,7 @@ class Recorder():
 
     rgbEncoder.bitstream.link(rgbEncoded.input)
     leftEncoder.bitstream.link(leftEncoded.input)
-    rightEncoder.bitstream.link(rightH265.input)
+    rightEncoder.bitstream.link(rightEncoded.input)
 
     rgbCam.video.link(metadata.input)
 
@@ -192,7 +192,7 @@ class Recorder():
     self.__depthWeight = depthPercent
     self.__rgbWeight = 100 - self.__depthWeight
 
-  def record(self, outputDirPath: Path, rgbProfile: str, monoProfile: str,
+  def record(self, outDirPath: Path, rgbProfile: str, monoProfile: str,
              quality: int, keyframeFrequency: int):
     self.__initRecord(rgbProfile, monoProfile, quality, keyframeFrequency)
 
@@ -210,8 +210,8 @@ class Recorder():
           name="rgbEncoded", maxSize=self.fps, blocking=True)
       leftEncodedQ = device.getOutputQueue(
           name="leftEncoded", maxSize=self.fps, blocking=True)
-      rightEncoded = device.getOutputQueue(
-          name="rightH265", maxSize=self.fps, blocking=True)
+      rightEncodedQ = device.getOutputQueue(
+          name="rightEncoded", maxSize=self.fps, blocking=True)
 
       # Init output path
       startTime = self.__getFrameTime(metadataQ.get().getTimestamp())
@@ -229,8 +229,8 @@ class Recorder():
       else:
         monoExt = monoProfile
 
-      outputDirPath.mkdir(parents=True, exist_ok=True)
-      subDirPath = outputDirPath.joinpath(f"{tag}/")
+      outDirPath.mkdir(parents=True, exist_ok=True)
+      subDirPath = outDirPath.joinpath(f"{tag}/")
       subDirPath.mkdir(exist_ok=True)
 
       ## Calibration data output
@@ -242,7 +242,7 @@ class Recorder():
       monoTag = self.monoRes.title()
       rgbEncodedPath = subDirPath.joinpath(f"[{rgbTag}]rgb.{rgbExt}")
       leftEncodedPath = subDirPath.joinpath(f"[{monoTag}]left.{monoExt}")
-      rightH265Path = subDirPath.joinpath(f"[{monoTag}]right.{monoExt}")
+      rightEncodedPath = subDirPath.joinpath(f"[{monoTag}]right.{monoExt}")
 
       ## Timestamp output
       timestampPath = subDirPath.joinpath(f"rgb-timestamp.txt")
@@ -258,9 +258,8 @@ class Recorder():
       # Write files
       with open(timestampPath, "at") as timestampFile, open(
           rgbEncodedPath,
-          "wb") as rgbFile, open(leftEncodedPath,
-                                 "wb") as leftFile, open(rightH265Path,
-                                                         "wb") as rightFile:
+          "wb") as rgbFile, open(leftEncodedPath, "wb") as leftFile, open(
+              rightEncodedPath, "wb") as rightFile:
         # Recording
         print(f"{startTime}, start recording (Press Ctrl+C to stop)")
         timestampFile.write(startTime.astimezone().isoformat() + "\n")
@@ -273,11 +272,8 @@ class Recorder():
               leftFps: float = leftFrameCount / recordingTime.seconds
               rightFps: float = rightFrameCount / recordingTime.seconds
 
-            rgbFpsStr: str = "%.1f" % rgbFps
-            leftFpsStr: str = "%.1f" % leftFps
-            rightFpsStr: str = "%.1f" % rightFps
             print(
-                f"\rRecording: [{rgbFpsStr} L{leftFpsStr} R{rightFpsStr} FPS] {recordingTime}...",
+                f"\rRecording: [{rgbFps:.1f} L{leftFps:.1f} R{rightFps:.1f} FPS] {recordingTime}...",
                 end="")
 
             while metadataQ.has():
@@ -289,13 +285,13 @@ class Recorder():
             while leftEncodedQ.has():
               leftEncodedQ.get().getData().tofile(leftFile)
               leftFrameCount += 1
-            while rightEncoded.has():
-              rightEncoded.get().getData().tofile(rightFile)
+            while rightEncodedQ.has():
+              rightEncodedQ.get().getData().tofile(rightFile)
               rightFrameCount += 1
           except KeyboardInterrupt:
             break
       print("\nStop recording...")
-    print(f"Output files in: \"{outputDirPath.absolute()}\"")
+    print(f"Output files in: \"{outDirPath.absolute()}\"")
 
   def preview(self):
     self.__initPreview()
@@ -328,9 +324,6 @@ class Recorder():
           if (rgbFrame is not None) and (disparityFrame is not None):
             scaleFactor: float = 1 / 2
             self.__showPreview(rgbFrame, disparityFrame, scaleFactor, "Depth")
-
-            rgbShowSize = (int(rgbFrame.shape[1] * scaleFactor),
-                           int(rgbFrame.shape[0] * scaleFactor))
 
             rgbFrame = None
             disparityFrame = None

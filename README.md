@@ -11,7 +11,7 @@ options:
   -e, --encoder       Encoder for RGB and Mono: <lossless|mjpeg|h265>[,<lossless|mjpeg|h265>], default = "lossless"  (Single Value mean both have the same encoder)
   -q, --quality       Encoder quality between 0-100, default = "100"
   -k, --keyframe      Keyframe frequency, 0 means auto, default = "0"
-  -o, --out           Output directory path, default = "output"
+  -o, --out           Output directory path, default = "out"
 ```
 
 ## Dependencies

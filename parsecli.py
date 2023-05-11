@@ -56,8 +56,8 @@ def parseCli():
       "--out",
       metavar="",
       type=str,
-      default="output",
-      help="Output directory path, default = \"output\"")
+      default="out",
+      help="Output directory path, default = \"out\"")
   args = parser.parse_args()
   return args
 
