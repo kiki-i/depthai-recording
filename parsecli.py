@@ -33,8 +33,8 @@ def parseCli():
       "--encoder",
       metavar="",
       type=str,
-      default="lossless",
-      help="Encoder for RGB and Mono: <lossless|mjpeg|h265>[,<lossless|mjpeg|h265>], default = \"lossless\" (Single Value mean both have the same encoder)"
+      default="h265",
+      help="Encoder for RGB and Mono: <lossless|mjpeg|h265>[,<lossless|mjpeg|h265>], default = \"h265\" (Single Value mean same encoder)"
   )
   parser.add_argument(
       "-q",
