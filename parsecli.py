@@ -2,7 +2,7 @@ import argparse
 
 
 def parseCli():
-  description = "Record RGB and stereo video with DepthAI OAK-D"
+  description = "Record RGB and stereo video with timestamp using DepthAI OAK-D"
   parser = argparse.ArgumentParser(description=description)
   parser.add_argument(
       "-r",

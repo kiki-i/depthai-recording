@@ -1,7 +1,7 @@
 # depthai-recording
 
 ```
-Record RGB and stereo video with DepthAI OAK-D
+Record RGB and stereo video with timestamp using DepthAI OAK-D
 
 options:
   -h, --help          show this help message and exit

@@ -31,7 +31,7 @@ class Recorder():
     self.__depthWeight = 100
     self.__rgbWeight = 0
     cv2.namedWindow(windowName)
-    cv2.createTrackbar("Depth%", windowName, self.__depthWeight, 100,
+    cv2.createTrackbar("Depth %", windowName, self.__depthWeight, 100,
                        self.__updateBlendWeights)
 
   def __getFrameTime(self, timestamp: timedelta) -> datetime:
