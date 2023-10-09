@@ -17,8 +17,8 @@ options:
 ## Dependencies
 
 * depthai
-* numpy
-* opencv-python
+* numpy (Optional, for preview)
+* opencv-python (Optional, for preview)
 
 ## License
 
