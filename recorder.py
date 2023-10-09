@@ -34,7 +34,7 @@ class Recorder():
     cv2.createTrackbar("Depth %", windowName, self.__depthWeight, 100,
                        self.__updateBlendWeights)
 
-  def __getFrameTime(self, timestamp: timedelta) -> datetime:
+  def __getFrameDatetime(self, timestamp: timedelta) -> datetime:
     return datetime.now() - (dai.Clock.now() - timestamp)
 
   def __initRecord(self, rgbProfile: str, monoProfile: str, quality: int,
@@ -196,73 +196,66 @@ class Recorder():
              quality: int, keyframeFrequency: int):
     self.__initRecord(rgbProfile, monoProfile, quality, keyframeFrequency)
 
-    # Recording
-    with dai.Device(self.__pipeline) as device:
-      # RGB needs fixed focus to properly align with depth
-      calibration = device.readCalibration()
-      lensPosition = calibration.getLensPosition(dai.CameraBoardSocket.RGB)
-      self.__rgbCam.initialControl.setManualFocus(lensPosition)
+    # Init output dir
+    dirTimestamp = datetime.now().astimezone().isoformat().replace(":", ";")
+    dirTag = f"[{dirTimestamp}][{self.fps}FPS]"
+    dirTag += f"[{rgbProfile},{monoProfile}]"
+    if rgbProfile == "lossless":
+      rgbExt = "mjpeg"
+    else:
+      rgbExt = rgbProfile
+    if monoProfile == "lossless":
+      monoExt = "mjpeg"
+    else:
+      monoExt = monoProfile
 
-      # Output queues
-      metadataQ = device.getOutputQueue(
-          name="metadata", maxSize=self.fps, blocking=True)
-      rgbEncodedQ = device.getOutputQueue(
-          name="rgbEncoded", maxSize=self.fps, blocking=True)
-      leftEncodedQ = device.getOutputQueue(
-          name="leftEncoded", maxSize=self.fps, blocking=True)
-      rightEncodedQ = device.getOutputQueue(
-          name="rightEncoded", maxSize=self.fps, blocking=True)
+    outDirPath.mkdir(parents=True, exist_ok=True)
+    subDirPath = outDirPath / f"{dirTag}/"
+    subDirPath.mkdir(exist_ok=True)
 
-      # Init output path
-      startTime = self.__getFrameTime(metadataQ.get().getTimestamp())
-      dirTimestamp = startTime.astimezone().isoformat().replace(":", ";")
-      tag = f"[{dirTimestamp}][{self.fps}FPS]"
+    # Video output file
+    rgbPath = subDirPath / f"{self.rgbRes}.rgb.{rgbExt}"
+    leftPath = subDirPath / f"{self.monoRes}.left.{monoExt}"
+    rightPath = subDirPath / f"{self.monoRes}.right.{monoExt}"
 
-      ## Init tag
-      tag += f"[{rgbProfile},{monoProfile}]"
-      if rgbProfile == "lossless":
-        rgbExt = "mjpeg"
-      else:
-        rgbExt = rgbProfile
-      if monoProfile == "lossless":
-        monoExt = "mjpeg"
-      else:
-        monoExt = monoProfile
+    # Timestamp output file
+    timestampPath = subDirPath / "rgb.timestamp.txt"
+    # Calibration data output
+    calibrationPath = subDirPath / "calibration.json"
 
-      outDirPath.mkdir(parents=True, exist_ok=True)
-      subDirPath = outDirPath.joinpath(f"{tag}/")
-      subDirPath.mkdir(exist_ok=True)
+    print(f"Press Ctrl+C to stop recording...")
+    rgbFrameCount: int = 0
+    leftFrameCount: int = 0
+    rightFrameCount: int = 0
+    rgbFps: float = 0.0
+    leftFps: float = 0.0
+    rightFps: float = 0.0
 
-      ## Calibration data output
-      calibrationPath = subDirPath.joinpath(f"calibration.json")
-      calibration.eepromToJsonFile(calibrationPath)
+    with (open(rgbPath, "wb") as rgbFile,
+          open(leftPath, "wb") as leftFile,
+          open(rightPath, "wb") as rightFile,
+          open(timestampPath, "at") as timestampFile):
+      with dai.Device(self.__pipeline) as device:
+        # RGB needs fixed focus to properly align with depth
+        calibration = device.readCalibration()
+        lensPosition = calibration.getLensPosition(dai.CameraBoardSocket.RGB)
+        self.__rgbCam.initialControl.setManualFocus(lensPosition)
+        calibration.eepromToJsonFile(calibrationPath)
 
-      ## Video output
-      rgbTag = self.rgbRes.title()
-      monoTag = self.monoRes.title()
-      rgbEncodedPath = subDirPath.joinpath(f"[{rgbTag}]rgb.{rgbExt}")
-      leftEncodedPath = subDirPath.joinpath(f"[{monoTag}]left.{monoExt}")
-      rightEncodedPath = subDirPath.joinpath(f"[{monoTag}]right.{monoExt}")
+        # Output queues
+        metadataQ = device.getOutputQueue(
+            name="metadata", maxSize=self.fps, blocking=True)
+        rgbEncodedQ = device.getOutputQueue(
+            name="rgbEncoded", maxSize=self.fps, blocking=True)
+        leftEncodedQ = device.getOutputQueue(
+            name="leftEncoded", maxSize=self.fps, blocking=True)
+        rightEncodedQ = device.getOutputQueue(
+            name="rightEncoded", maxSize=self.fps, blocking=True)
 
-      ## Timestamp output
-      timestampPath = subDirPath.joinpath(f"rgb-timestamp.txt")
-      timestampPath.unlink(True)
-
-      rgbFrameCount: int = 0
-      leftFrameCount: int = 0
-      rightFrameCount: int = 0
-      rgbFps: float = 0.0
-      leftFps: float = 0.0
-      rightFps: float = 0.0
-
-      # Write files
-      with open(timestampPath, "at") as timestampFile, open(
-          rgbEncodedPath,
-          "wb") as rgbFile, open(leftEncodedPath, "wb") as leftFile, open(
-              rightEncodedPath, "wb") as rightFile:
-        # Recording
-        print(f"{startTime}, start recording (Press Ctrl+C to stop)")
+        startTime = self.__getFrameDatetime(metadataQ.get().getTimestamp())
         timestampFile.write(startTime.astimezone().isoformat() + "\n")
+
+        # Recording
         while True:
           try:
             recordingTime = datetime.now() - startTime
@@ -273,11 +266,11 @@ class Recorder():
               rightFps: float = rightFrameCount / recordingTime.seconds
 
             print(
-                f"\rRecording: [{rgbFps:.1f} L{leftFps:.1f} R{rightFps:.1f} FPS] {recordingTime}...",
+                f"\rFPS: {rgbFps:.1f} L{leftFps:.1f} R{rightFps:.1f}, Time: {recordingTime}",
                 end="")
 
             while metadataQ.has():
-              timestamp = self.__getFrameTime(metadataQ.get().getTimestamp())
+              timestamp = self.__getFrameDatetime(metadataQ.get().getTimestamp())
               timestampFile.write(timestamp.astimezone().isoformat() + "\n")
             while rgbEncodedQ.has():
               rgbEncodedQ.get().getData().tofile(rgbFile)
@@ -290,8 +283,10 @@ class Recorder():
               rightFrameCount += 1
           except KeyboardInterrupt:
             break
+
       print("\nStop recording...")
-    print(f"Output files in: \"{outDirPath.absolute()}\"")
+
+    print(f"Output files in \"{outDirPath.absolute()}\"")
 
   def preview(self):
     self.__initPreview()
