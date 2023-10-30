@@ -1,12 +1,13 @@
 import depthai as dai
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 
 class Recorder():
 
-  def __init__(self, rgbRes: str, monoRes: str, fps: int) -> None:
+  def __init__(self, time: timedelta, rgbRes: str, monoRes: str,
+               fps: int) -> None:
     rgbResMap = {
         "12mp": dai.ColorCameraProperties.SensorResolution.THE_12_MP,
         "4k": dai.ColorCameraProperties.SensorResolution.THE_4_K,
@@ -18,6 +19,7 @@ class Recorder():
         "400p": dai.MonoCameraProperties.SensorResolution.THE_400_P,
     }
 
+    self.time = time
     self.rgbRes = rgbRes
     self.rgbResPreset = rgbResMap[rgbRes]
     self.monoRes = monoRes
@@ -178,6 +180,9 @@ class Recorder():
         while True:
           try:
             recordingTime = datetime.now() - startTime
+            if recordingTime > self.time:
+              break
+
             recordingSeconds = recordingTime.seconds
             if recordingSeconds:
               rgbFps: float = rgbFrameCount / recordingTime.seconds

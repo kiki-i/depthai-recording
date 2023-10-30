@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from parsecli import *
+from cliparser import *
 
 from pathlib import Path
 
@@ -9,17 +9,17 @@ if __name__ == "__main__":
 
   # Init
   print("Init...")
-  cliArgs = parseCli()
-  rgbRes, monoRes = parseCliRes(cliArgs.resolution)
-  rgbEncoder, monoEncoder = parseCliEncoder(cliArgs.encoder)
+  cliParser = cliParser()
 
-  if cliArgs.preview:
+  if cliParser.preview:
     from previewer import *
-    preview = Previewer(rgbRes, monoRes, cliArgs.fps)
+    preview = Previewer(cliParser.time, cliParser.rgbRes, cliParser.monoRes,
+                        cliParser.fps)
     preview.preview()
   else:
     from recorder import *
-    recorder = Recorder(rgbRes, monoRes, cliArgs.fps)
-    recorder.record(
-        Path(cliArgs.out), rgbEncoder, monoEncoder, cliArgs.quality,
-        cliArgs.keyframe)
+    recorder = Recorder(cliParser.time, cliParser.rgbRes, cliParser.monoRes,
+                        cliParser.fps)
+    recorder.record(cliParser.outDir, cliParser.rgbEncoder,
+                    cliParser.monoEncoder, cliParser.quality,
+                    cliParser.keyframe)
