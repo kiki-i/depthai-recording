@@ -13,13 +13,21 @@ if __name__ == "__main__":
 
   if cliParser.preview:
     from previewer import *
-    preview = Previewer(cliParser.time, cliParser.rgbRes, cliParser.monoRes,
-                        cliParser.fps)
+
+    preview = Previewer(
+      cliParser.time, cliParser.rgbRes, cliParser.monoRes, cliParser.fps
+    )
     preview.preview()
   else:
     from recorder import *
-    recorder = Recorder(cliParser.time, cliParser.rgbRes, cliParser.monoRes,
-                        cliParser.fps)
-    recorder.record(cliParser.outDir, cliParser.rgbEncoder,
-                    cliParser.monoEncoder, cliParser.quality,
-                    cliParser.keyframe)
+
+    recorder = Recorder(
+      cliParser.time, cliParser.rgbRes, cliParser.monoRes, cliParser.fps
+    )
+    recorder.record(
+      cliParser.outDir,
+      cliParser.rgbEncoder,
+      cliParser.monoEncoder,
+      cliParser.quality,
+      cliParser.keyframe,
+    )

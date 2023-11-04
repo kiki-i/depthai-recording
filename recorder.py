@@ -4,19 +4,17 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 
-class Recorder():
-
-  def __init__(self, time: timedelta, rgbRes: str, monoRes: str,
-               fps: int) -> None:
+class Recorder:
+  def __init__(self, time: timedelta, rgbRes: str, monoRes: str, fps: int) -> None:
     rgbResMap = {
-        "12mp": dai.ColorCameraProperties.SensorResolution.THE_12_MP,
-        "4k": dai.ColorCameraProperties.SensorResolution.THE_4_K,
-        "1080p": dai.ColorCameraProperties.SensorResolution.THE_1080_P,
+      "12mp": dai.ColorCameraProperties.SensorResolution.THE_12_MP,
+      "4k": dai.ColorCameraProperties.SensorResolution.THE_4_K,
+      "1080p": dai.ColorCameraProperties.SensorResolution.THE_1080_P,
     }
     monoResMap = {
-        "800p": dai.MonoCameraProperties.SensorResolution.THE_800_P,
-        "720p": dai.MonoCameraProperties.SensorResolution.THE_720_P,
-        "400p": dai.MonoCameraProperties.SensorResolution.THE_400_P,
+      "800p": dai.MonoCameraProperties.SensorResolution.THE_800_P,
+      "720p": dai.MonoCameraProperties.SensorResolution.THE_720_P,
+      "400p": dai.MonoCameraProperties.SensorResolution.THE_400_P,
     }
 
     self.time = time
@@ -29,12 +27,13 @@ class Recorder():
   def __getFrameDatetime(self, frame: dai.ImgFrame) -> datetime:
     return datetime.now() - (dai.Clock.now() - frame.getTimestamp())
 
-  def __initRecord(self, rgbProfile: str, monoProfile: str, quality: int,
-                   keyframeFrequency: int):
+  def __initRecord(
+    self, rgbProfile: str, monoProfile: str, quality: int, keyframeFrequency: int
+  ):
     profilePresetMap = {
-        "h265": dai.VideoEncoderProperties.Profile.H265_MAIN,
-        "mjpeg": dai.VideoEncoderProperties.Profile.MJPEG,
-        "lossless": dai.VideoEncoderProperties.Profile.MJPEG,
+      "h265": dai.VideoEncoderProperties.Profile.H265_MAIN,
+      "mjpeg": dai.VideoEncoderProperties.Profile.MJPEG,
+      "lossless": dai.VideoEncoderProperties.Profile.MJPEG,
     }
     rgbProfilePreset = profilePresetMap[rgbProfile]
     monoProfilePreset = profilePresetMap[monoProfile]
@@ -107,8 +106,14 @@ class Recorder():
     timestamp = self.__getFrameDatetime(frame)
     timestampFile.write(timestamp.astimezone().isoformat() + "\n")
 
-  def record(self, outDirPath: Path, rgbProfile: str, monoProfile: str,
-             quality: int, keyframeFrequency: int):
+  def record(
+    self,
+    outDirPath: Path,
+    rgbProfile: str,
+    monoProfile: str,
+    quality: int,
+    keyframeFrequency: int,
+  ):
     self.__initRecord(rgbProfile, monoProfile, quality, keyframeFrequency)
 
     # Init output dir
@@ -148,14 +153,15 @@ class Recorder():
     lFps: float = 0.0
     rFps: float = 0.0
 
-    with (open(rgbPath, "wb") as rgbFile,
-          open(lPath, "wb") as lFile,
-          open(rPath, "wb") as rFile,
-          open(rgbTimestampPath, "at") as rgbTimestampFile,
-          open(lTimestampPath, "at") as lTimestampFile,
-          open(rTimestampPath, "at") as rTimestampFile):
+    with (
+      open(rgbPath, "wb") as rgbFile,
+      open(lPath, "wb") as lFile,
+      open(rPath, "wb") as rFile,
+      open(rgbTimestampPath, "at") as rgbTimestampFile,
+      open(lTimestampPath, "at") as lTimestampFile,
+      open(rTimestampPath, "at") as rTimestampFile,
+    ):
       with dai.Device(self.__pipeline) as device:
-
         # RGB needs fixed focus to properly align with depth
         calibration = device.readCalibration()
         lensPosition = calibration.getLensPosition(dai.CameraBoardSocket.RGB)
@@ -164,11 +170,14 @@ class Recorder():
 
         # Output queues
         rgbEncodedQ = device.getOutputQueue(
-            name="rgbEncoded", maxSize=self.fps * 3, blocking=True)
+          name="rgbEncoded", maxSize=self.fps * 3, blocking=True
+        )
         lEncodedQ = device.getOutputQueue(
-            name="lEncoded", maxSize=self.fps * 3, blocking=True)
+          name="lEncoded", maxSize=self.fps * 3, blocking=True
+        )
         rEncodedQ = device.getOutputQueue(
-            name="rEncoded", maxSize=self.fps * 3, blocking=True)
+          name="rEncoded", maxSize=self.fps * 3, blocking=True
+        )
 
         # Recording
         firstRgbFrame = rgbEncodedQ.get()
@@ -190,8 +199,9 @@ class Recorder():
               rFps: float = rFrameCount / recordingTime.seconds
 
             print(
-                f"\rFPS: {rgbFps:.1f} L{lFps:.1f} R{rFps:.1f}, Time: {recordingTime}",
-                end="")
+              f"\rFPS: {rgbFps:.1f} L{lFps:.1f} R{rFps:.1f}, Time: {recordingTime}",
+              end="",
+            )
 
             while rgbEncodedQ.has():
               self.__writeFrame(rgbFile, rgbTimestampFile, rgbEncodedQ.get())
@@ -208,4 +218,4 @@ class Recorder():
 
       print("\nStop recording...")
 
-    print(f"Output files in \"{outDirPath.absolute()}\"")
+    print(f'Output files in "{outDirPath.absolute()}"')

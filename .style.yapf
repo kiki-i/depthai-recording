@@ -1,3 +1,0 @@
-[style]
-based_on_style = yapf
-spaces_before_comment = 1, 1
