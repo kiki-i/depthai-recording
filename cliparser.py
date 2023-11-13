@@ -148,11 +148,19 @@ class cliParser:
         h, min, s = map(float, cliTime.split(":"))
     else:
       if "d" in cliTime:
-        d = float(re.match(r"(\d+)d", cliTime).groups(1))
+        match = re.search(r"(\d+)d", cliTime).groups(1)
+        if match:
+          d = float(match[0])
       if "h" in cliTime:
-        h = float(re.match(r"(\d+)h", cliTime).groups(1))
+        match = re.search(r"(\d+)h", cliTime).groups(1)
+        if match:
+          h = float(match[0])
       if "min" in cliTime:
-        min = float(re.match(r"(\d+)min", cliTime).groups(1))
+        match = re.search(r"(\d+)min", cliTime).groups(1)
+        if match:
+          min = float(match[0])
       if "s" in cliTime:
-        s = float(re.match(r"(\d+)s", cliTime).groups(1))
+        match = re.search(r"(\d+)s", cliTime).groups(1)
+        if match:
+          s = float(match[0])
     return timedelta(days=d, hours=h, minutes=min, seconds=s)
