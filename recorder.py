@@ -145,7 +145,7 @@ class Recorder:
     # Calibration data output
     calibrationPath = subDirPath / "calibration.json"
 
-    print(f"Press Ctrl+C to stop recording...")
+    print("Press Ctrl+C to stop recording...")
     rgbFrameCount: int = 0
     lFrameCount: int = 0
     rFrameCount: int = 0

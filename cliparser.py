@@ -4,7 +4,7 @@ import argparse
 import re
 
 
-class cliParser:
+class CliParser:
   outDir: Path
   preview: bool
   time: timedelta

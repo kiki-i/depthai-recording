@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from cliparser import *
+from cliparser import CliParser
 
 from pathlib import Path
 
@@ -9,17 +9,17 @@ if __name__ == "__main__":
 
   # Init
   print("Init...")
-  cliParser = cliParser()
+  cliParser = CliParser()
 
   if cliParser.preview:
-    from previewer import *
+    from previewer import Previewer
 
     preview = Previewer(
       cliParser.time, cliParser.rgbRes, cliParser.monoRes, cliParser.fps
     )
     preview.preview()
   else:
-    from recorder import *
+    from recorder import Recorder
 
     recorder = Recorder(
       cliParser.time, cliParser.rgbRes, cliParser.monoRes, cliParser.fps

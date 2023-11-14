@@ -1,6 +1,7 @@
-from recorder import *
+from recorder import Recorder
 
 import cv2
+import depthai as dai
 import numpy as np
 
 
