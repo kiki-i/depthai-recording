@@ -90,7 +90,7 @@ class CliParser:
     )
     args = parser.parse_args()
 
-    self.outDir = Path(args.out)
+    self.outDir = Path(args.out).expanduser()
     self.preview = args.preview
     self.time = self.__parseCliTime(args.time)
 
